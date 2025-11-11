@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HelpGenie chat</title>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f5f6fa;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .chat-box {
+      width: 360px;
+      height: 600px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .header {
+      background: #6c63ff;
+      color: white;
+      text-align: center;
+      padding: 14px;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    .messages {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .user, .bot {
+      max-width: 75%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      word-wrap: break-word;
+      line-height: 1.4;
+    }
+    .user {
+      align-self: flex-end;
+      background: #6c63ff;
+      color: white;
+    }
+    .bot {
+      align-self: flex-start;
+      background: #f1f0f0;
+    }
+    .input-area {
+      display: flex;
+      border-top: 1px solid #eee;
+    }
+    input {
+      flex: 1;
+      border: none;
+      padding: 14px;
+      outline: none;
+      font-size: 14px;
+    }
+    button {
+      background: #6c63ff;
+      color: white;
+      border: none;
+      padding: 0 20px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #5b55e5;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-box">
+    <div class="header">HelpGenie chat</div>
+    <div class="messages" id="messages"></div>
+    <div class="input-area">
+      <input id="userInput" type="text" placeholder="Type your message..." />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "/chat"; // your FastAPI endpoint
+
+    const input = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const messages = document.getElementById("messages");
+
+    // Generate or reuse a session ID for this browser session
+    let sessionId = sessionStorage.getItem("sessionId");
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      sessionStorage.setItem("sessionId", sessionId);
+    }
+
+    input.addEventListener("keypress", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        sendMessage();
+      }
+    });
+
+    sendBtn.addEventListener("click", sendMessage);
+
+    async function sendMessage() {
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Add user message
+      const userMsg = document.createElement("div");
+      userMsg.className = "user";
+      userMsg.textContent = text;
+      messages.appendChild(userMsg);
+      input.value = "";
+      messages.scrollTop = messages.scrollHeight;
+
+      // Add "Typing..." indicator
+      const botMsg = document.createElement("div");
+      botMsg.className = "bot";
+      botMsg.textContent = "Typing...";
+      messages.appendChild(botMsg);
+      messages.scrollTop = messages.scrollHeight;
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, query: text }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          botMsg.textContent = `⚠️ ${data.detail || "Server error"}`;
+        } else {
+          botMsg.textContent = data.answer || "No response.";
+
+          // Optional: show queries remaining
+          if (data.queries_remaining !== undefined) {
+            const remainingMsg = document.createElement("div");
+            remainingMsg.className = "bot";
+            remainingMsg.style.fontSize = "12px";
+            remainingMsg.style.color = "#888";
+            remainingMsg.textContent = `Queries remaining: ${data.queries_remaining}`;
+            messages.appendChild(remainingMsg);
+          }
+        }
+      } catch (err) {
+        botMsg.textContent = "⚠️ Could not reach the server. Please try again.";
+      }
+
+      messages.scrollTop = messages.scrollHeight;
+    }
+  </script>
+</body>
+</html>
