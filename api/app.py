@@ -6,6 +6,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from huggingface_hub import InferenceClient
 import chromadb
+from chromadb.config import Settings
+import chromadb.utils
 from sentence_transformers import SentenceTransformer
 import hashlib
 from dotenv import load_dotenv
@@ -21,7 +23,12 @@ model = "openai/gpt-oss-20b"
 
 # --- Load embedding model and ChromaDB ---
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-chroma_client = chromadb.PersistentClient(path="./faq_chromadb")
+# Try to use local persistent DB, fallback to in-memory
+try:
+    chroma_client = chromadb.PersistentClient(path="./faq_chromadb")
+except Exception:
+    chroma_client = chromadb.Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=None))
+
 collection = chroma_client.get_or_create_collection("faq_collection")
 
 # --- Embedding cache (in-memory) ---
